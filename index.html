@@ -7,25 +7,56 @@
         body {
             font-family: Arial, sans-serif;
             margin: 40px;
+            background-color: #f9f9f9;
         }
         .container {
-            max-width: 600px;
+            max-width: 700px;
             margin: auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
         }
         input[type="file"] {
             display: block;
-            margin-bottom: 20px;
+            margin: 20px 0;
+            width: 100%;
         }
         #convertBtn {
-            padding: 10px 20px;
+            padding: 12px 25px;
             font-size: 16px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: block;
+            margin: 0 auto;
         }
-        #downloadLink {
-            display: none;
-            margin-top: 20px;
+        #convertBtn:hover {
+            background-color: #218838;
         }
         #progress {
             margin-top: 20px;
+            text-align: center;
+            color: #555;
+        }
+        #downloadLinks {
+            margin-top: 30px;
+        }
+        .download-item {
+            margin-bottom: 10px;
+        }
+        .download-item a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .download-item a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -35,24 +66,24 @@
         <input type="file" id="svgFiles" accept=".svg" multiple>
         <button id="convertBtn">Convert to PNG</button>
         <div id="progress"></div>
-        <a id="downloadLink" href="#" download="converted_pngs.zip">Download PNGs</a>
+        <div id="downloadLinks"></div>
     </div>
-
-    <!-- JSZip Library -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.0/jszip.min.js"
-            integrity="sha512-v6Rjp12LcNtuF5nZwUgSPhPJAj4tOWwfluwZxVE0wD6zd/JI6XmFaFuq+hXQNkMJn4FwyhEDWljD5h6rP+Ewdw=="
-            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
     <script>
         document.getElementById('convertBtn').addEventListener('click', async () => {
             const files = document.getElementById('svgFiles').files;
+            const progressDiv = document.getElementById('progress');
+            const downloadLinksDiv = document.getElementById('downloadLinks');
+            
+            // Clear previous results
+            progressDiv.innerHTML = '';
+            downloadLinksDiv.innerHTML = '';
+
             if (!files.length) {
                 alert('Please select at least one SVG file.');
                 return;
             }
 
-            const zip = new JSZip();
-            const progressDiv = document.getElementById('progress');
             progressDiv.innerHTML = 'Starting conversion...';
 
             for (let i = 0; i < files.length; i++) {
@@ -60,28 +91,32 @@
                 progressDiv.innerHTML = `Converting ${i + 1} of ${files.length}: ${file.name}`;
                 try {
                     const svgText = await file.text();
-                    const pngBlob = await convertSvgToPng(svgText, 800, 800); // You can adjust the width and height
-                    zip.file(file.name.replace(/\.svg$/i, '.png'), pngBlob);
+                    const pngBlob = await convertSvgToPng(svgText, 800, 800); // Adjust width and height as needed
+                    const pngUrl = URL.createObjectURL(pngBlob);
+                    const pngName = file.name.replace(/\.svg$/i, '.png');
+
+                    // Create download link
+                    const link = document.createElement('a');
+                    link.href = pngUrl;
+                    link.download = pngName;
+                    link.textContent = pngName;
+
+                    // Wrap link in a div
+                    const linkDiv = document.createElement('div');
+                    linkDiv.className = 'download-item';
+                    linkDiv.appendChild(link);
+
+                    downloadLinksDiv.appendChild(linkDiv);
                 } catch (error) {
                     console.error(`Error converting ${file.name}:`, error);
-                    alert(`Failed to convert ${file.name}. See console for details.`);
+                    const errorMsg = document.createElement('div');
+                    errorMsg.style.color = 'red';
+                    errorMsg.textContent = `Failed to convert ${file.name}: ${error.message}`;
+                    downloadLinksDiv.appendChild(errorMsg);
                 }
             }
 
-            progressDiv.innerHTML = 'Generating ZIP file...';
-            try {
-                const zipBlob = await zip.generateAsync({ type: 'blob' }, (metadata) => {
-                    progressDiv.innerHTML = `Zipping: ${metadata.percent.toFixed(2)}%`;
-                });
-                const url = URL.createObjectURL(zipBlob);
-                const downloadLink = document.getElementById('downloadLink');
-                downloadLink.href = url;
-                downloadLink.style.display = 'block';
-                progressDiv.innerHTML = 'Conversion complete!';
-            } catch (error) {
-                console.error('Error generating ZIP:', error);
-                alert('Failed to generate ZIP file. See console for details.');
-            }
+            progressDiv.innerHTML = 'Conversion complete!';
         });
 
         async function convertSvgToPng(svgText, width, height) {
