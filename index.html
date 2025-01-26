@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SVG to PNG Batch Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+        }
+        input[type="file"] {
+            display: block;
+            margin-bottom: 20px;
+        }
+        #convertBtn {
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        #downloadLink {
+            display: none;
+            margin-top: 20px;
+        }
+        #progress {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SVG to PNG Batch Converter</h1>
+        <input type="file" id="svgFiles" accept=".svg" multiple>
+        <button id="convertBtn">Convert to PNG</button>
+        <div id="progress"></div>
+        <a id="downloadLink" href="#" download="converted_pngs.zip">Download PNGs</a>
+    </div>
+
+    <!-- JSZip Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.0/jszip.min.js"
+            integrity="sha512-v6Rjp12LcNtuF5nZwUgSPhPJAj4tOWwfluwZxVE0wD6zd/JI6XmFaFuq+hXQNkMJn4FwyhEDWljD5h6rP+Ewdw=="
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <script>
+        document.getElementById('convertBtn').addEventListener('click', async () => {
+            const files = document.getElementById('svgFiles').files;
+            if (!files.length) {
+                alert('Please select at least one SVG file.');
+                return;
+            }
+
+            const zip = new JSZip();
+            const progressDiv = document.getElementById('progress');
+            progressDiv.innerHTML = 'Starting conversion...';
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                progressDiv.innerHTML = `Converting ${i + 1} of ${files.length}: ${file.name}`;
+                try {
+                    const svgText = await file.text();
+                    const pngBlob = await convertSvgToPng(svgText, 800, 800); // You can adjust the width and height
+                    zip.file(file.name.replace(/\.svg$/i, '.png'), pngBlob);
+                } catch (error) {
+                    console.error(`Error converting ${file.name}:`, error);
+                    alert(`Failed to convert ${file.name}. See console for details.`);
+                }
+            }
+
+            progressDiv.innerHTML = 'Generating ZIP file...';
+            try {
+                const zipBlob = await zip.generateAsync({ type: 'blob' }, (metadata) => {
+                    progressDiv.innerHTML = `Zipping: ${metadata.percent.toFixed(2)}%`;
+                });
+                const url = URL.createObjectURL(zipBlob);
+                const downloadLink = document.getElementById('downloadLink');
+                downloadLink.href = url;
+                downloadLink.style.display = 'block';
+                progressDiv.innerHTML = 'Conversion complete!';
+            } catch (error) {
+                console.error('Error generating ZIP:', error);
+                alert('Failed to generate ZIP file. See console for details.');
+            }
+        });
+
+        async function convertSvgToPng(svgText, width, height) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(svgBlob);
+
+                img.onload = () => {
+                    // Create a canvas with desired dimensions
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+
+                    // Optionally, adjust aspect ratio or scale
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob((blob) => {
+                        URL.revokeObjectURL(url);
+                        if (blob) {
+                            resolve(blob);
+                        } else {
+                            reject(new Error('Canvas is empty'));
+                        }
+                    }, 'image/png');
+                };
+
+                img.onerror = (e) => {
+                    URL.revokeObjectURL(url);
+                    reject(new Error('Failed to load SVG as image'));
+                };
+
+                img.src = url;
+            });
+        }
+    </script>
+</body>
+</html>
