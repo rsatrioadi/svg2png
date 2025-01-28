@@ -142,8 +142,7 @@
             const files = document.getElementById('svgFiles').files;
             const progressDiv = document.getElementById('progress');
             const downloadLinksDiv = document.getElementById('downloadLinks');
-            
-            // Clear previous results
+
             progressDiv.innerHTML = '';
             downloadLinksDiv.innerHTML = '';
 
@@ -159,17 +158,15 @@
                 progressDiv.innerHTML = `Converting ${i + 1} of ${files.length}: ${file.name}`;
                 try {
                     const svgText = await file.text();
-                    const pngBlob = await convertSvgToPng(svgText, 800, 800); // Adjust width and height as needed
+                    const pngBlob = await convertSvgToPng(svgText, 800);
                     const pngUrl = URL.createObjectURL(pngBlob);
                     const pngName = file.name.replace(/\.svg$/i, '.png');
 
-                    // Create download link
                     const link = document.createElement('a');
                     link.href = pngUrl;
                     link.download = pngName;
                     link.textContent = pngName;
 
-                    // Wrap link in a div
                     const linkDiv = document.createElement('div');
                     linkDiv.className = 'download-item';
                     linkDiv.appendChild(link);
@@ -187,21 +184,23 @@
             progressDiv.innerHTML = 'Conversion complete!';
         });
 
-        async function convertSvgToPng(svgText, width, height) {
+        function convertSvgToPng(svgText, maxWidth) {
             return new Promise((resolve, reject) => {
                 const img = new Image();
                 const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
                 const url = URL.createObjectURL(svgBlob);
 
                 img.onload = () => {
-                    // Create a canvas with desired dimensions
+                    const ratio = img.naturalHeight / img.naturalWidth;
+                    const canvasWidth = maxWidth;
+                    const canvasHeight = canvasWidth * ratio;
+
                     const canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
+                    canvas.width = canvasWidth;
+                    canvas.height = canvasHeight;
                     const ctx = canvas.getContext('2d');
 
-                    // Optionally, adjust aspect ratio or scale
-                    ctx.drawImage(img, 0, 0, width, height);
+                    ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
 
                     canvas.toBlob((blob) => {
                         URL.revokeObjectURL(url);
@@ -213,7 +212,7 @@
                     }, 'image/png');
                 };
 
-                img.onerror = (e) => {
+                img.onerror = () => {
                     URL.revokeObjectURL(url);
                     reject(new Error('Failed to load SVG as image'));
                 };
